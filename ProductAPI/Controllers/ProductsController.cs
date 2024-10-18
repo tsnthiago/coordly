@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ProductAPI.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ProductAPI.Controllers
 {
@@ -8,93 +10,102 @@ namespace ProductAPI.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IProductRepository _repository;
 
-        public ProductsController(AppDbContext context)
+        public ProductsController(IProductRepository repository)
         {
-            _context = context;
+            _repository = repository;
         }
 
         // GET: api/Products
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            return await _context.Products.ToListAsync();
+            try
+            {
+                var products = await _repository.GetAllAsync();
+                return Ok(products);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         // GET: api/Products/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
-            var product = await _context.Products.FindAsync(id);
-
-            if (product == null)
+            try
+            {
+                var product = await _repository.GetByIdAsync(id);
+                return Ok(product);
+            }
+            catch (KeyNotFoundException)
             {
                 return NotFound();
             }
-
-            return product;
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         // POST: api/Products
         [HttpPost]
         public async Task<ActionResult<Product>> CreateProduct(Product product)
         {
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetProduct), new { id = product.ProductID }, product);
+            try
+            {
+                var createdProduct = await _repository.CreateAsync(product);
+                return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.ProductID }, createdProduct);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         // PUT: api/Products/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateProduct(int id, Product product)
         {
-            if (id != product.ProductID)
+            try
+            {
+                await _repository.UpdateAsync(id, product);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound();
+            }
+            catch (ArgumentException)
             {
                 return BadRequest();
             }
-
-            _context.Entry(product).State = EntityState.Modified;
-
-            try
+            catch (Exception ex)
             {
-                await _context.SaveChangesAsync();
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ProductExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
         }
 
         // DELETE: api/Products/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var product = await _context.Products.FindAsync(id);
-            if (product == null)
+            try
+            {
+                await _repository.DeleteAsync(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
             {
                 return NotFound();
             }
-
-            _context.Products.Remove(product);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private bool ProductExists(int id)
-        {
-            return _context.Products.Any(e => e.ProductID == id);
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
     }
 }

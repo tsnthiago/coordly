@@ -18,6 +18,8 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "ProductAPI", Version = "v1" });
 });
 
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
