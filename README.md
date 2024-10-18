@@ -1,145 +1,200 @@
 # ProductAPI
 
-## Descrição do Projeto
+## Project Description
 
-Este projeto é uma API RESTful construída com **ASP.NET Core 8** e **Entity Framework Core 8**, que oferece operações CRUD (Criar, Ler, Atualizar, Deletar) para o gerenciamento de produtos. Cada produto tem propriedades como `ProductID`, `Name`, `Price` e `StockQuantity`, e a aplicação utiliza boas práticas de arquitetura com camadas de **Models** e **Controllers**.
+This project is a RESTful API developed with **ASP.NET Core 8** and **Entity Framework Core 8**, providing CRUD operations (Create, Read, Update, Delete) for managing products. The application follows good architecture practices, with a clear separation of concerns between **Models**, **Repositories**, and **Controllers**.
 
-A aplicação utiliza **SQLite** como banco de dados e oferece documentação interativa de endpoints através do **Swagger**.
+## Features
 
-## Funcionalidades
+- Full product management (create, list, update, delete)
+- Pagination in the product listing
+- Input data validation
+- Global exception handling
+- Interactive documentation with **Swagger**
+- Unit and integration tests
 
-- Criar, listar, atualizar e deletar produtos.
-- Validações de:
-  - Nome (obrigatório).
-  - Preço (deve ser maior que zero).
-  - Quantidade de estoque (deve ser maior ou igual a zero).
-- Documentação interativa com **Swagger**.
-- Testes unitários para o `ProductsController`.
-
-## Tecnologias Utilizadas
+## Technologies Used
 
 - **ASP.NET Core 8.0**
 - **Entity Framework Core 8.0**
-- **SQLite**
-- **Swagger para documentação**
-- **xUnit para testes unitários**
-- **C#**
+- **SQLite** (database)
+- **Swagger/OpenAPI** for documentation
+- **xUnit** for unit and integration tests
+- **Moq** for mocking in unit tests
 
-## Estrutura do Projeto
-
-```bash
-ProductAPI/
-├── Controllers/
-│   └── ProductsController.cs       # Lida com as requisições HTTP
-├── Models/
-│   ├── AppDbContext.cs             # Configura o contexto do banco de dados
-│   └── Product.cs                  # Modelo de domínio Produto
-├── appsettings.json                # Configuração de banco de dados e outros parâmetros
-├── ProductAPI.csproj               # Arquivo de projeto .NET
-└── Program.cs                      # Configuração de inicialização da aplicação
+## Project Structure
 ```
 
-## Pré-requisitos
+ProductAPI/
+├── Controllers/
+│ └── ProductsController.cs
+├── Middleware/
+│ └── GlobalExceptionHandlingMiddleware.cs
+├── Models/
+│ ├── AppDbContext.cs
+│ ├── Product.cs
+│ └── ProductsResponse.cs
+├── Repositories/
+│ ├── IProductRepository.cs
+│ └── ProductRepository.cs
+├── Migrations/
+├── Program.cs
+├── appsettings.json
+├── ProductAPI.csproj
+└── ProductAPI.http
+ProductAPI.Tests/
+├── ProductsControllerTests.cs
+└── ProductAPI.Tests.csproj
+ProductAPI.IntegrationTests/
+├── CustomWebApplicationFactory.cs
+├── ProductApiIntegrationTests.cs
+├── TestOperation.cs
+└── ProductAPI.IntegrationTests.csproj
 
-Para rodar este projeto, você precisará ter o **.NET 8.0 SDK** e o **SQL Server** instalados. Se estiver em um ambiente Linux, o WSL pode ser usado para rodar o .NET.
+````
 
-### Instalar .NET SDK
+## Prerequisites
+- **.NET 8.0 SDK**
+- A code editor (recommended: **Visual Studio Code** or **Visual Studio**)
 
-1. Adicione o repositório e instale o SDK do .NET:
+## How to Run the Project Locally
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/ProductAPI.git
+   cd ProductAPI
+````
+
+2. Restore the dependencies:
 
    ```bash
-   sudo apt update
-   sudo apt install -y dotnet-sdk-8.0
+   dotnet restore
    ```
 
-2. Verifique a instalação:
+3. Apply the migrations to create the database:
+
    ```bash
-   dotnet --version
+   cd ProductAPI
+   dotnet ef database update
    ```
 
-### Configurar SQL Server
+4. Run the project:
 
-No `appsettings.json`, defina a string de conexão para o SQL Server local:
+   ```bash
+   dotnet run
+   ```
+
+   The API will be available at:
+
+   - https://localhost:5001
+   - http://localhost:5000
+
+## Accessing Swagger
+
+After starting the application, access the **Swagger UI** at:
+
+- https://localhost:5001/swagger
+- http://localhost:5000/swagger
+
+## Running the Tests
+
+### Unit Tests:
+
+```bash
+dotnet test ProductAPI.Tests/ProductAPI.Tests.csproj
+```
+
+### Integration Tests:
+
+```bash
+dotnet test ProductAPI.IntegrationTests/ProductAPI.IntegrationTests.csproj
+```
+
+## API Endpoints
+
+- `GET /api/products` — List all products (with pagination)
+- `GET /api/products/{id}` — Get a specific product
+- `POST /api/products` — Create a new product
+- `PUT /api/products/{id}` — Update an existing product
+- `DELETE /api/products/{id}` — Remove a product
+
+### Product Model
 
 ```json
 {
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=ProductDb;Trusted_Connection=True;"
-  }
+  "productID": 0,
+  "name": "string",
+  "price": 0,
+  "stockQuantity": 0
 }
 ```
 
-Certifique-se de que o SQL Server esteja em execução e configurado corretamente.
+- `productID`: Automatically generated
+- `name`: Required, maximum of 100 characters
+- `price`: Required, must be greater than zero
+- `stockQuantity`: Required, must be greater than or equal to zero
 
-## Como Rodar o Projeto
+## Error Handling
 
-### 1. Clonar o Repositório
+The API uses a **global middleware** for exception handling, ensuring consistent responses in case of errors.
 
-Clone este repositório do GitHub para o seu ambiente local:
+## Database Configuration
 
-```bash
-git clone https://github.com/seu-usuario/ProductAPI.git
-cd ProductAPI
-```
+The project uses **SQLite** as the database. The connection string is configured in the `appsettings.json` file. To switch to another database, modify the connection string and install the appropriate provider.
 
-### 2. Restaurar Dependências
+## API Documentation
 
-Restaure os pacotes NuGet do projeto:
+The full API documentation is available through **Swagger UI**. Access `/swagger` after starting the application to view all endpoints, data models, and test operations.
 
-```bash
-dotnet restore
-```
+## Tests
 
-### 3. Aplicar Migrações
+- **Unit Tests**: Located in `ProductAPI.Tests`, focusing on testing the controller logic in isolation.
+- **Integration Tests**: Located in `ProductAPI.IntegrationTests`, testing the full flow of the API, including interaction with an in-memory database.
 
-Crie as migrações para configurar o banco de dados:
+To add new tests, follow the existing pattern in the test files.
 
-```bash
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-```
+## Contributing
 
-### 4. Rodar o Projeto
+1. Fork the project
+2. Create a branch for your feature:
+   ```bash
+   git checkout -b feature/AmazingFeature
+   ```
+3. Commit your changes:
+   ```bash
+   git commit -m 'Add some AmazingFeature'
+   ```
+4. Push to the branch:
+   ```bash
+   git push origin feature/AmazingFeature
+   ```
+5. Open a Pull Request
 
-Inicie a aplicação localmente:
+## Best Development Practices
 
-```bash
-dotnet run
-```
+- Maintain the separation of concerns between controllers, repositories, and models.
+- Use **dependency injection** for loose coupling between components.
+- Write tests for new features and maintain the existing test coverage.
+- Follow the naming conventions of C# and .NET.
+- Document new endpoints in Swagger.
 
-A aplicação será iniciada em `http://localhost:5000`. Você pode acessar a documentação Swagger em:
+## Troubleshooting
 
-```bash
-http://localhost:5000/swagger
-```
+- **Migration issues**: If you encounter issues with migrations, try deleting the `Migrations` folder and the database file, then recreate the migrations with:
+  ```bash
+  dotnet ef migrations add InitialCreate
+  ```
+- **Compilation issues**: Verify all dependencies are installed correctly with `dotnet restore`.
+- **Test failures**: Check if the in-memory database is being properly configured in the integration tests.
 
-### 5. Testar a API
+## License
 
-Use o **Swagger** ou ferramentas como **Postman** para testar os endpoints da API.
+This project is licensed under the MIT License. See the LICENSE file for more details.
 
-## Endpoints Disponíveis
+## Contact
 
-| Método | Endpoint           | Descrição                      |
-| ------ | ------------------ | ------------------------------ |
-| GET    | /api/products      | Listar todos os produtos       |
-| POST   | /api/products      | Criar um novo produto          |
-| PUT    | /api/products/{id} | Atualizar um produto existente |
-| DELETE | /api/products/{id} | Deletar um produto             |
+For questions, suggestions, or contributions, please open an issue in the GitHub repository or contact via [thiago_tsn@live.com].
 
-## Como Contribuir
+## Acknowledgements
 
-1. Fork este repositório.
-2. Crie uma nova branch (`git checkout -b feature/nova-feature`).
-3. Faça as suas alterações e commit (`git commit -am 'Adiciona nova feature'`).
-4. Envie a branch (`git push origin feature/nova-feature`).
-5. Crie um novo Pull Request.
-
-## Licença
-
-Este projeto está licenciado sob os termos da licença MIT. Consulte o arquivo `LICENSE` para mais informações.
-
----
-
-### Observações Finais
-
-Esse `README.md` cobre todos os requisitos e é totalmente adaptado para rodar a aplicação facilmente. Inclua também o link do repositório do GitHub e certifique-se de que o arquivo `README.md` esteja no diretório raiz do projeto.
+Special thanks to all contributors and the open-source community for the frameworks and tools that made this project possible.

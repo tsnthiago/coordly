@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using ProductAPI.Controllers;
 using ProductAPI.Models;
@@ -13,12 +14,14 @@ namespace ProductAPI.Tests
     public class ProductsControllerTests
     {
         private readonly Mock<IProductRepository> _mockRepo;
+        private readonly Mock<ILogger<ProductsController>> _mockLogger;
         private readonly ProductsController _controller;
 
         public ProductsControllerTests()
         {
             _mockRepo = new Mock<IProductRepository>();
-            _controller = new ProductsController(_mockRepo.Object);
+            _mockLogger = new Mock<ILogger<ProductsController>>();
+            _controller = new ProductsController(_mockRepo.Object, _mockLogger.Object);
         }
 
         [Fact]
@@ -30,15 +33,23 @@ namespace ProductAPI.Tests
                 new Product { ProductID = 1, Name = "Test Product 1", Price = 9.99m, StockQuantity = 10 },
                 new Product { ProductID = 2, Name = "Test Product 2", Price = 19.99m, StockQuantity = 5 }
             };
-            _mockRepo.Setup(repo => repo.GetAllAsync()).ReturnsAsync(products);
+            _mockRepo.Setup(repo => repo.GetAllAsync(It.IsAny<int>(), It.IsAny<int>()))
+                .ReturnsAsync((products, products.Count));
 
             // Act
             var result = await _controller.GetProducts();
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedProducts = Assert.IsAssignableFrom<IEnumerable<Product>>(okResult.Value);
-            Assert.Equal(2, returnedProducts.Count());
+            var returnValue = Assert.IsType<ProductsResponse>(okResult.Value);
+
+            Assert.NotNull(returnValue);
+            Assert.IsType<List<Product>>(returnValue.Products);
+            Assert.Equal(2, returnValue.Products.Count());
+            Assert.Equal(1, returnValue.CurrentPage);
+            Assert.Equal(10, returnValue.PageSize);
+            Assert.Equal(1, returnValue.TotalPages);
+            Assert.Equal(2, returnValue.TotalCount);
         }
 
         [Fact]

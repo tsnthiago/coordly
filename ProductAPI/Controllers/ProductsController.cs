@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using ProductAPI.Models;
+using ProductAPI.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace ProductAPI.Controllers
 {
@@ -11,24 +13,41 @@ namespace ProductAPI.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly IProductRepository _repository;
+        private readonly ILogger<ProductsController> _logger;
 
-        public ProductsController(IProductRepository repository)
+        public ProductsController(IProductRepository repository, ILogger<ProductsController> logger)
         {
             _repository = repository;
+            _logger = logger;
         }
 
         // GET: api/Products
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        public async Task<ActionResult<ProductsResponse>> GetProducts(int pageNumber = 1, int pageSize = 10)
         {
+            if (pageSize > 50)
+                pageSize = 50;
+
             try
             {
-                var products = await _repository.GetAllAsync();
-                return Ok(products);
+                var (products, totalCount) = await _repository.GetAllAsync(pageNumber, pageSize);
+                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+                var response = new ProductsResponse
+                {
+                    Products = products,
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = totalPages,
+                    TotalCount = totalCount
+                };
+
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                _logger.LogError(ex, "Error occurred while getting products");
+                return StatusCode(500, "An error occurred while processing your request.");
             }
         }
 
@@ -55,21 +74,29 @@ namespace ProductAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Product>> CreateProduct(Product product)
         {
-            try
+            if (!ModelState.IsValid)
             {
-                var createdProduct = await _repository.CreateAsync(product);
-                return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.ProductID }, createdProduct);
+                return BadRequest(ModelState);
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+
+            var createdProduct = await _repository.CreateAsync(product);
+            return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.ProductID }, createdProduct);
         }
 
         // PUT: api/Products/5
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateProduct(int id, Product product)
         {
+            if (id != product.ProductID)
+            {
+                return BadRequest("ID mismatch");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             try
             {
                 await _repository.UpdateAsync(id, product);
@@ -79,13 +106,10 @@ namespace ProductAPI.Controllers
             {
                 return NotFound();
             }
-            catch (ArgumentException)
-            {
-                return BadRequest();
-            }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                _logger.LogError(ex, "Error updating product");
+                return StatusCode(500, "An error occurred while updating the product.");
             }
         }
 

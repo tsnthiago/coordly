@@ -1,64 +1,65 @@
 using Microsoft.EntityFrameworkCore;
 using ProductAPI.Models;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
-public class ProductRepository : IProductRepository
+namespace ProductAPI.Repositories
 {
-    private readonly AppDbContext _context;
-
-    public ProductRepository(AppDbContext context)
+    public class ProductRepository : IProductRepository
     {
-        _context = context;
-    }
+        private readonly AppDbContext _context;
 
-    public async Task<IEnumerable<Product>> GetAllAsync()
-    {
-        return await _context.Products.ToListAsync();
-    }
-
-    public async Task<Product> GetByIdAsync(int id)
-    {
-        var product = await _context.Products.FindAsync(id);
-        if (product == null)
+        public ProductRepository(AppDbContext context)
         {
-            throw new KeyNotFoundException($"Product with ID {id} not found.");
-        }
-        return product;
-    }
-
-    public async Task<Product> CreateAsync(Product product)
-    {
-        _context.Products.Add(product);
-        await _context.SaveChangesAsync();
-        return product;
-    }
-
-    public async Task UpdateAsync(int id, Product product)
-    {
-        if (id != product.ProductID)
-        {
-            throw new ArgumentException("ID mismatch");
+            _context = context;
         }
 
-        var existingProduct = await _context.Products.FindAsync(id);
-        if (existingProduct == null)
+        public async Task<Product> CreateAsync(Product product)
         {
-            throw new KeyNotFoundException($"Product with ID {id} not found.");
+            await _context.Products.AddAsync(product);
+            await _context.SaveChangesAsync();
+            return product;
         }
 
-        _context.Entry(existingProduct).CurrentValues.SetValues(product);
-        await _context.SaveChangesAsync();
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        var product = await _context.Products.FindAsync(id);
-        if (product == null)
+        public async Task<(IEnumerable<Product> Products, int TotalCount)> GetAllAsync(int pageNumber, int pageSize)
         {
-            throw new KeyNotFoundException($"Product with ID {id} not found.");
+            var totalCount = await _context.Products.CountAsync();
+            var products = await _context.Products
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (products, totalCount);
         }
 
-        _context.Products.Remove(product);
-        await _context.SaveChangesAsync();
+        public async Task<Product> GetByIdAsync(int id)
+        {
+            return await _context.Products.FindAsync(id) ?? throw new KeyNotFoundException($"Product with ID {id} not found.");
+        }
+
+        public async Task UpdateAsync(int id, Product product)
+        {
+            var existingProduct = await _context.Products.FindAsync(id);
+            if (existingProduct == null)
+            {
+                throw new KeyNotFoundException($"Product with ID {id} not found.");
+            }
+
+            _context.Entry(existingProduct).CurrentValues.SetValues(product);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null)
+            {
+                throw new KeyNotFoundException($"Product with ID {id} not found.");
+            }
+
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
+        }
     }
 }
