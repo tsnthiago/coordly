@@ -61,9 +61,9 @@ ProductAPI.IntegrationTests/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/ProductAPI.git
-   cd ProductAPI
-````
+      git clone https://github.com/your-username/ProductAPI.git
+      cd ProductAPI
+   ````
 
 2. Restore the dependencies:
 
