@@ -16,7 +16,7 @@ namespace ProductAPI.Migrations
                 {
                     ProductID = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
                     Price = table.Column<decimal>(type: "TEXT", nullable: false),
                     StockQuantity = table.Column<int>(type: "INTEGER", nullable: false)
                 },

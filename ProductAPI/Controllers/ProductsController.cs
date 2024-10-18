@@ -1,10 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ProductAPI.Data;
 using ProductAPI.Models;
-using ProductAPI.Repositories;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
 
 namespace ProductAPI.Controllers
 {
@@ -12,75 +9,42 @@ namespace ProductAPI.Controllers
     [ApiController]
     public class ProductsController : ControllerBase
     {
-        private readonly IProductRepository _repository;
-        private readonly ILogger<ProductsController> _logger;
+        private readonly ApplicationDbContext _context;
 
-        public ProductsController(IProductRepository repository, ILogger<ProductsController> logger)
+        public ProductsController(ApplicationDbContext context)
         {
-            _repository = repository;
-            _logger = logger;
+            _context = context;
         }
 
         // GET: api/Products
         [HttpGet]
-        public async Task<ActionResult<ProductsResponse>> GetProducts(int pageNumber = 1, int pageSize = 10)
+        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            if (pageSize > 50)
-                pageSize = 50;
-
-            try
-            {
-                var (products, totalCount) = await _repository.GetAllAsync(pageNumber, pageSize);
-                var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
-
-                var response = new ProductsResponse
-                {
-                    Products = products,
-                    CurrentPage = pageNumber,
-                    PageSize = pageSize,
-                    TotalPages = totalPages,
-                    TotalCount = totalCount
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while getting products");
-                return StatusCode(500, "An error occurred while processing your request.");
-            }
+            return await _context.Products.ToListAsync();
         }
 
         // GET: api/Products/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
-            try
-            {
-                var product = await _repository.GetByIdAsync(id);
-                return Ok(product);
-            }
-            catch (KeyNotFoundException)
+            var product = await _context.Products.FindAsync(id);
+
+            if (product == null)
             {
                 return NotFound();
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+
+            return product;
         }
 
         // POST: api/Products
         [HttpPost]
         public async Task<ActionResult<Product>> CreateProduct(Product product)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            _context.Products.Add(product);
+            await _context.SaveChangesAsync();
 
-            var createdProduct = await _repository.CreateAsync(product);
-            return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.ProductID }, createdProduct);
+            return CreatedAtAction(nameof(GetProduct), new { id = product.ProductID }, product);
         }
 
         // PUT: api/Products/5
@@ -89,47 +53,57 @@ namespace ProductAPI.Controllers
         {
             if (id != product.ProductID)
             {
-                return BadRequest("ID mismatch");
+                return BadRequest();
             }
 
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            try
-            {
-                await _repository.UpdateAsync(id, product);
-                return NoContent();
-            }
-            catch (KeyNotFoundException)
+            var existingProduct = await _context.Products.FindAsync(id);
+            if (existingProduct == null)
             {
                 return NotFound();
             }
-            catch (Exception ex)
+
+            existingProduct.Name = product.Name;
+            existingProduct.Price = product.Price;
+            existingProduct.StockQuantity = product.StockQuantity;
+
+            try
             {
-                _logger.LogError(ex, "Error updating product");
-                return StatusCode(500, "An error occurred while updating the product.");
+                await _context.SaveChangesAsync();
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProductExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
         }
 
         // DELETE: api/Products/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            try
-            {
-                await _repository.DeleteAsync(id);
-                return NoContent();
-            }
-            catch (KeyNotFoundException)
+            var product = await _context.Products.FindAsync(id);
+            if (product == null)
             {
                 return NotFound();
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
+
+            _context.Products.Remove(product);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        private bool ProductExists(int id)
+        {
+            return _context.Products.Any(e => e.ProductID == id);
         }
     }
 }

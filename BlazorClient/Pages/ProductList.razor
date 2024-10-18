@@ -1,0 +1,69 @@
+@page "/products"
+@using BlazorClient.Services
+@using BlazorClient.Models
+@inject ProductService ProductService
+@inject NavigationManager NavigationManager
+
+<h1>Product List</h1>
+
+<button class="btn btn-primary" @onclick="AddNewProduct">Add New Product</button>
+
+@if (products == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in products)
+            {
+                <tr>
+                    <td>@product.ProductID</td>
+                    <td>@product.Name</td>
+                    <td>@product.Price.ToString("C")</td>
+                    <td>@product.StockQuantity</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="() => EditProduct(product.ProductID)">Edit</button>
+                        <button class="btn btn-danger" @onclick="() => DeleteProduct(product.ProductID)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await ProductService.GetProductsAsync();
+        products = response?.Products;
+    }
+
+    private void AddNewProduct()
+    {
+        NavigationManager.NavigateTo("/product/new");
+    }
+
+    private void EditProduct(int id)
+    {
+        NavigationManager.NavigateTo($"/product/edit/{id}");
+    }
+
+    private async Task DeleteProduct(int id)
+    {
+        await ProductService.DeleteProductAsync(id);
+        await OnInitializedAsync();
+    }
+}

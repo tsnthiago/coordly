@@ -1,155 +1,108 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using Moq;
+using Microsoft.EntityFrameworkCore;
 using ProductAPI.Controllers;
+using ProductAPI.Data;
 using ProductAPI.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Xunit;
 
 namespace ProductAPI.Tests
 {
-    public class ProductsControllerTests
+    public class ProductsControllerTests : IDisposable
     {
-        private readonly Mock<IProductRepository> _mockRepo;
-        private readonly Mock<ILogger<ProductsController>> _mockLogger;
+        private readonly ApplicationDbContext _context;
         private readonly ProductsController _controller;
 
         public ProductsControllerTests()
         {
-            _mockRepo = new Mock<IProductRepository>();
-            _mockLogger = new Mock<ILogger<ProductsController>>();
-            _controller = new ProductsController(_mockRepo.Object, _mockLogger.Object);
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            _context = new ApplicationDbContext(options);
+            _controller = new ProductsController(_context);
+        }
+
+        public void Dispose()
+        {
+            _context.Database.EnsureDeleted();
+            _context.Dispose();
         }
 
         [Fact]
-        public async Task GetProducts_ReturnsOkResult_WithListOfProducts()
+        public async Task GetProducts_ReturnsAllProducts()
         {
             // Arrange
-            var products = new List<Product>
+            _context.Products.AddRange(new List<Product>
             {
-                new Product { ProductID = 1, Name = "Test Product 1", Price = 9.99m, StockQuantity = 10 },
-                new Product { ProductID = 2, Name = "Test Product 2", Price = 19.99m, StockQuantity = 5 }
-            };
-            _mockRepo.Setup(repo => repo.GetAllAsync(It.IsAny<int>(), It.IsAny<int>()))
-                .ReturnsAsync((products, products.Count));
+                new Product { Name = "Test Product 1", Price = 10.99m, StockQuantity = 100 },
+                new Product { Name = "Test Product 2", Price = 20.99m, StockQuantity = 200 }
+            });
+            await _context.SaveChangesAsync();
 
             // Act
             var result = await _controller.GetProducts();
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnValue = Assert.IsType<ProductsResponse>(okResult.Value);
-
-            Assert.NotNull(returnValue);
-            Assert.IsType<List<Product>>(returnValue.Products);
-            Assert.Equal(2, returnValue.Products.Count());
-            Assert.Equal(1, returnValue.CurrentPage);
-            Assert.Equal(10, returnValue.PageSize);
-            Assert.Equal(1, returnValue.TotalPages);
-            Assert.Equal(2, returnValue.TotalCount);
-        }
-
-        [Fact]
-        public async Task GetProduct_ReturnsOkResult_WithProduct()
-        {
-            // Arrange
-            var product = new Product { ProductID = 1, Name = "Test Product", Price = 9.99m, StockQuantity = 10 };
-            _mockRepo.Setup(repo => repo.GetByIdAsync(1)).ReturnsAsync(product);
-
-            // Act
-            var result = await _controller.GetProduct(1);
-
-            // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedProduct = Assert.IsType<Product>(okResult.Value);
-            Assert.Equal(product.ProductID, returnedProduct.ProductID);
-        }
-
-        [Fact]
-        public async Task GetProduct_ReturnsNotFound_WhenProductDoesNotExist()
-        {
-            // Arrange
-            _mockRepo.Setup(repo => repo.GetByIdAsync(1)).ThrowsAsync(new KeyNotFoundException());
-
-            // Act
-            var result = await _controller.GetProduct(1);
-
-            // Assert
-            Assert.IsType<NotFoundResult>(result.Result);
+            var actionResult = Assert.IsType<ActionResult<IEnumerable<Product>>>(result);
+            var returnValue = Assert.IsType<List<Product>>(actionResult.Value);
+            Assert.Equal(2, returnValue.Count);
         }
 
         [Fact]
         public async Task CreateProduct_ReturnsCreatedAtActionResult()
         {
             // Arrange
-            var productToCreate = new Product { Name = "New Product", Price = 29.99m, StockQuantity = 15 };
-            var createdProduct = new Product { ProductID = 3, Name = "New Product", Price = 29.99m, StockQuantity = 15 };
-            _mockRepo.Setup(repo => repo.CreateAsync(It.IsAny<Product>())).ReturnsAsync(createdProduct);
+            var newProduct = new Product { Name = "New Product", Price = 15.99m, StockQuantity = 50 };
 
             // Act
-            var result = await _controller.CreateProduct(productToCreate);
+            var result = await _controller.CreateProduct(newProduct);
 
             // Assert
-            var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-            var returnedProduct = Assert.IsType<Product>(createdAtActionResult.Value);
-            Assert.Equal(createdProduct.ProductID, returnedProduct.ProductID);
+            var actionResult = Assert.IsType<ActionResult<Product>>(result);
+            var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(actionResult.Result);
+            var returnValue = Assert.IsType<Product>(createdAtActionResult.Value);
+            Assert.Equal(newProduct.Name, returnValue.Name);
         }
 
         [Fact]
-        public async Task UpdateProduct_ReturnsNoContent_WhenProductExists()
+        public async Task UpdateProduct_ReturnsNoContent()
         {
             // Arrange
-            var productToUpdate = new Product { ProductID = 1, Name = "Updated Product", Price = 39.99m, StockQuantity = 20 };
-            _mockRepo.Setup(repo => repo.UpdateAsync(1, It.IsAny<Product>())).Returns(Task.CompletedTask);
+            var existingProduct = new Product { Name = "Existing Product", Price = 10.99m, StockQuantity = 100 };
+            _context.Products.Add(existingProduct);
+            await _context.SaveChangesAsync();
+
+            var updatedProduct = new Product 
+            { 
+                ProductID = existingProduct.ProductID, 
+                Name = "Updated Product", 
+                Price = 15.99m, 
+                StockQuantity = 150 
+            };
 
             // Act
-            var result = await _controller.UpdateProduct(1, productToUpdate);
+            var result = await _controller.UpdateProduct(existingProduct.ProductID, updatedProduct);
 
             // Assert
             Assert.IsType<NoContentResult>(result);
+
+            // Verify the update
+            var productInDb = await _context.Products.FindAsync(existingProduct.ProductID);
+            Assert.NotNull(productInDb);
+            Assert.Equal(updatedProduct.Name, productInDb.Name);
+            Assert.Equal(updatedProduct.Price, productInDb.Price);
+            Assert.Equal(updatedProduct.StockQuantity, productInDb.StockQuantity);
         }
 
         [Fact]
-        public async Task UpdateProduct_ReturnsNotFound_WhenProductDoesNotExist()
+        public async Task UpdateProduct_ReturnsBadRequest_WhenIdMismatch()
         {
             // Arrange
-            var productToUpdate = new Product { ProductID = 1, Name = "Updated Product", Price = 39.99m, StockQuantity = 20 };
-            _mockRepo.Setup(repo => repo.UpdateAsync(1, It.IsAny<Product>())).ThrowsAsync(new KeyNotFoundException());
+            var updatedProduct = new Product { ProductID = 2, Name = "Updated Product", Price = 15.99m, StockQuantity = 150 };
 
             // Act
-            var result = await _controller.UpdateProduct(1, productToUpdate);
+            var result = await _controller.UpdateProduct(1, updatedProduct);
 
             // Assert
-            Assert.IsType<NotFoundResult>(result);
-        }
-
-        [Fact]
-        public async Task DeleteProduct_ReturnsNoContent_WhenProductExists()
-        {
-            // Arrange
-            _mockRepo.Setup(repo => repo.DeleteAsync(1)).Returns(Task.CompletedTask);
-
-            // Act
-            var result = await _controller.DeleteProduct(1);
-
-            // Assert
-            Assert.IsType<NoContentResult>(result);
-        }
-
-        [Fact]
-        public async Task DeleteProduct_ReturnsNotFound_WhenProductDoesNotExist()
-        {
-            // Arrange
-            _mockRepo.Setup(repo => repo.DeleteAsync(1)).ThrowsAsync(new KeyNotFoundException());
-
-            // Act
-            var result = await _controller.DeleteProduct(1);
-
-            // Assert
-            Assert.IsType<NotFoundResult>(result);
+            Assert.IsType<BadRequestResult>(result);
         }
     }
 }

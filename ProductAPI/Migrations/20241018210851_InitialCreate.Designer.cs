@@ -3,14 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using ProductAPI.Models;
+using ProductAPI.Data;
 
 #nullable disable
 
 namespace ProductAPI.Migrations
 {
-    [DbContext(typeof(AppDbContext))]
-    [Migration("20241018190541_InitialCreate")]
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20241018210851_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -27,6 +27,7 @@ namespace ProductAPI.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Price")

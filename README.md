@@ -1,8 +1,6 @@
-# ProductAPI
+# Coordly - Product Management System
 
-## Project Description
-
-This project is a RESTful API developed with **ASP.NET Core 8** and **Entity Framework Core 8**, providing CRUD operations (Create, Read, Update, Delete) for managing products. The application follows good architecture practices, with a clear separation of concerns between **Models**, **Repositories**, and **Controllers**.
+Coordly is a product management system built with ASP.NET Core Web API and Blazor WebAssembly.
 
 ## Features
 

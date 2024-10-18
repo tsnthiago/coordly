@@ -1,13 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
-using Microsoft.AspNetCore.Mvc.Testing;
 using ProductAPI.Models;
-using Xunit;
 using Xunit.Abstractions;
 using System.Text.Json;
+using Microsoft.VisualStudio.TestPlatform.TestHost;
 
 namespace ProductAPI.IntegrationTests
 {
@@ -46,13 +43,16 @@ namespace ProductAPI.IntegrationTests
             // Assert
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<ProductsResponse>(content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
-            Assert.NotNull(result);
-            Assert.NotNull(result.Products);
-            Assert.IsType<List<Product>>(result.Products);
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            var result = JsonSerializer.Deserialize<List<Product>>(content, options);
 
-            LogOperation("GET", $"Retrieved {result.Products.Count} products");
+            Assert.NotNull(result);
+            Assert.IsType<List<Product>>(result);
+
+            LogOperation("GET", $"Retrieved {result.Count} products");
         }
 
         [Fact]
@@ -293,11 +293,8 @@ namespace ProductAPI.IntegrationTests
 
         public class ProductsResponse
         {
-            public List<Product>? Products { get; set; }
-            public int CurrentPage { get; set; }
-            public int PageSize { get; set; }
-            public int TotalPages { get; set; }
             public int TotalCount { get; set; }
+            public List<Product> Products { get; set; } = new List<Product>(); // Initialize with an empty list
         }
     }
 }
